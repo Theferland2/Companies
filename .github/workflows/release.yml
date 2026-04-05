@@ -101,6 +101,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Publish canary
+         if: github.repository == 'paperclip-ai/Companies'
         env:
           GITHUB_ACTIONS: "true"
         run: ./scripts/release.sh canary --skip-verify
@@ -230,6 +231,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Publish stable
+         if: github.repository == 'paperclip-ai/Companies'
         env:
           GITHUB_ACTIONS: "true"
         run: |
@@ -259,4 +261,5 @@ jobs:
             exit 1
           fi
           ./scripts/create-github-release.sh "$version"
+
 
