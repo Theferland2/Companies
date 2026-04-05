@@ -40,8 +40,52 @@ jobs:
 
 
 
+      - name: Configure Database Secret
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Update App Spec with DATABASE_URL
+        env:
+          DO_APP_NAME: ${{ secrets.DO_APP_NAME || 'companies-app' }}
+          DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
+        run: |
+          # 1. Obtener App ID 
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep "$DO_APP_NAME" | awk '{print $1}')
+          
+          if [ -z "$APP_ID" ]; then
+            echo "❌ Error: No se encontró una aplicación con el nombre $DO_APP_NAME"
+            exit 1
+          fi
+
+          echo "✅ Found App ID: $APP_ID"
+
+          # 2. Descargar spec actual
+          doctl apps spec get "$APP_ID" > app-spec.yaml
+          
+          # 3. Instalar yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          
+          # 4. Actualizar DATABASE_URL en el spec (asegurando que sea SECRET)
+          # Buscamos el servicio que tiene la DATABASE_URL y la actualizamos
+          yq eval '
+            .services[] |= (
+              if .envs != null then 
+                .envs |= map(
+                  if .key == "DATABASE_URL" then 
+                    .value = env(DATABASE_URL_SECRET) | .type = "SECRET" | .scope = "RUN_AND_BUILD_TIME"
+                  else . end
+                )
+              else . end
+            )
+          ' -i app-spec.yaml
+          
+          # 5. Aplicar spec actualizado
+          doctl apps update "$APP_ID" --spec app-spec.yaml
+
       - name: Trigger App Platform Deployment
         uses: digitalocean/app_action@v2
         with:
-          app_name: companies-app
+          app_name: ${{ secrets.DO_APP_NAME || 'companies-app' }}
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
