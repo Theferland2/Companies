@@ -15,6 +15,7 @@ services:
         value: "authenticated"
       - key: NODE_ENV
         value: "production"
-      # Add other required environment variables here based on .env
       - key: DATABASE_URL
-        value: "" # Setup with DO Managed DB or leave empty if using embedded
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: "${DATABASE_URL}"

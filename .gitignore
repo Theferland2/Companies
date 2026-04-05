@@ -6,6 +6,7 @@ dist/
 *.crt
 *.p12
 secrets.json
+.supabase-credentials.md
 *.tsbuildinfo
 drizzle/meta/
 .vite/
@@ -56,3 +57,4 @@ tests/release-smoke/test-results/
 tests/release-smoke/playwright-report/
 .superset/
 .claude/worktrees/
+MIGRATION_HANDOFF.md
