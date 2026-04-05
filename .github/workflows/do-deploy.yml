@@ -7,8 +7,8 @@ on:
       - main
 
 jobs:
-  verify:
-    name: Verify Build & Tests
+  build-test-deploy:
+    name: Build, Test & Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -38,11 +38,6 @@ jobs:
       - name: Run tests
         run: pnpm test:run
 
-  deploy:
-    name: Deploy to DO App Platform
-    needs: verify
-    runs-on: ubuntu-latest
-    steps:
       - name: Trigger App Platform Deployment
         uses: digitalocean/app_action@v2
         with:
