@@ -69,7 +69,30 @@ jobs:
           
           # 4. Actualizar DATABASE_URL en el spec (asegurando que sea SECRET)
           # Buscamos el servicio que tiene la DATABASE_URL y la actualizamos
-          yq -i ".services[] |= (if .envs then (.envs[] |= if .key == \"DATABASE_URL\" then .value = \"${DATABASE_URL_SECRET}\" | .type = \"SECRET\" | .scope = \"RUN_AND_BUILD_TIME\" else . end) else . end)" app-spec.yaml
+          cat > update_spec.py << 'EOF'
+import os
+import yaml
+
+# Leer el spec YAML
+with open('app-spec.yaml', 'r') as f:
+    spec = yaml.safe_load(f)
+
+# Actualizar DATABASE_URL en todos los servicios
+if 'services' in spec:
+    for service in spec['services']:
+        if 'envs' in service:
+            for env in service['envs']:
+                if env.get('key') == 'DATABASE_URL':
+                    env['value'] = os.environ.get('DATABASE_URL_SECRET', '')
+                    env['type'] = 'SECRET'
+                    env['scope'] = 'RUN_AND_BUILD_TIME'
+
+# Guardar de vuelta
+with open('app-spec.yaml', 'w') as f:
+    yaml.dump(spec, f)
+EOF
+
+          python3 update_spec.py
           
           # 5. Aplicar spec actualizado
           doctl apps update "$APP_ID" --spec app-spec.yaml
