@@ -1,6 +1,11 @@
 node_modules/
 dist/
-.env
+.env*
+*.key
+*.pem
+*.crt
+*.p12
+secrets.json
 *.tsbuildinfo
 drizzle/meta/
 .vite/

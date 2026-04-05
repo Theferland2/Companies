@@ -1,0 +1,20 @@
+name: companies-app
+region: nyc3
+services:
+  - name: companies-api-ui
+    github:
+      repo: ferangarita01/Companies
+      branch: master
+      deploy_on_push: false # Triggered programmatically via Github Actions after successful test suite
+    dockerfile_path: Dockerfile
+    http_port: 3100
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: PAPERCLIP_DEPLOYMENT_MODE
+        value: "authenticated"
+      - key: NODE_ENV
+        value: "production"
+      # Add other required environment variables here based on .env
+      - key: DATABASE_URL
+        value: "" # Setup with DO Managed DB or leave empty if using embedded

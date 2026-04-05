@@ -1,0 +1,50 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  verify:
+    name: Verify Build & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run tests
+        run: pnpm test:run
+
+  deploy:
+    name: Deploy to DO App Platform
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger App Platform Deployment
+        uses: digitalocean/app_action@v2
+        with:
+          app_name: ${{ secrets.DO_APP_NAME }}
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
