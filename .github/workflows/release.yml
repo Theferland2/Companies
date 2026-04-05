@@ -99,8 +99,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-       - name: Configure npm authentication
-         run: npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
 
       - name: Publish canary
         env:
@@ -230,8 +228,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-       - name: Configure npm authentication
-         run: npm config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
 
       - name: Publish stable
         env:
@@ -263,3 +259,4 @@ jobs:
             exit 1
           fi
           ./scripts/create-github-release.sh "$version"
+
