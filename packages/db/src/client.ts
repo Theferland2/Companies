@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import { migrate as migratePg } from "drizzle-orm/postgres-js/migrator";
 import { readFile, readdir } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import * as schema from "./schema/index.js";
@@ -68,9 +69,9 @@ export async function getPostgresDataDirectory(url: string): Promise<string | nu
 async function listMigrationFiles(): Promise<string[]> {
   const entries = await readdir(MIGRATIONS_FOLDER, { withFileTypes: true });
   return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".sql"))
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b));
+    .filter((entry: Dirent) => entry.isFile() && entry.name.endsWith(".sql"))
+    .map((entry: Dirent) => entry.name)
+    .sort((a: string, b: string) => a.localeCompare(b));
 }
 
 type MigrationJournalFile = {
@@ -89,7 +90,7 @@ async function listJournalMigrationEntries(): Promise<JournalMigrationEntry[]> {
     const parsed = JSON.parse(raw) as MigrationJournalFile;
     if (!Array.isArray(parsed.entries)) return [];
     return parsed.entries
-      .map((entry, entryIndex) => {
+      .map((entry, entryIndex): JournalMigrationEntry | null => {
         if (typeof entry?.tag !== "string") return null;
         if (typeof entry?.when !== "number" || !Number.isFinite(entry.when)) return null;
         const order = Number.isInteger(entry.idx) ? Number(entry.idx) : entryIndex;
@@ -305,7 +306,7 @@ async function getMigrationTableColumnNames(
         AND table_name = ${quoteLiteral(DRIZZLE_MIGRATIONS_TABLE)}
     `,
   );
-  return new Set(columns.map((column) => column.column_name));
+  return new Set(columns.map((column: { column_name: string }) => column.column_name));
 }
 
 async function tableExists(
@@ -431,15 +432,15 @@ async function loadAppliedMigrations(
 
   if (columnNames.has("name")) {
     const rows = await sql.unsafe<{ name: string }[]>(`SELECT name FROM ${qualifiedTable} ORDER BY id`);
-    return rows.map((row) => row.name).filter((name): name is string => Boolean(name));
+    return rows.map((row: { name: string }) => row.name).filter((name: string | null): name is string => Boolean(name));
   }
 
   if (columnNames.has("hash")) {
     const rows = await sql.unsafe<{ hash: string }[]>(`SELECT hash FROM ${qualifiedTable} ORDER BY id`);
     const hashesToMigrationFiles = await mapHashesToMigrationFiles(availableMigrations);
     const appliedFromHashes = rows
-      .map((row) => hashesToMigrationFiles.get(row.hash))
-      .filter((name): name is string => Boolean(name));
+      .map((row: { hash: string }) => hashesToMigrationFiles.get(row.hash))
+      .filter((name: string | undefined): name is string => Boolean(name));
 
     if (appliedFromHashes.length > 0) {
       // Best-effort: when all hashes resolve, this is authoritative.
@@ -471,8 +472,8 @@ async function loadAppliedMigrations(
   const rows = await sql.unsafe<{ id: number }[]>(`SELECT id FROM ${qualifiedTable} ORDER BY id`);
   const journalMigrationFiles = await listJournalMigrationFiles();
   const appliedFromIds = rows
-    .map((row) => journalMigrationFiles[row.id - 1])
-    .filter((name): name is string => Boolean(name));
+    .map((row: { id: number }) => journalMigrationFiles[row.id - 1])
+    .filter((name: string | undefined): name is string => Boolean(name));
   if (appliedFromIds.length > 0) return appliedFromIds;
 
   return availableMigrations.slice(0, Math.max(0, rows.length));
@@ -588,10 +589,10 @@ async function discoverMigrationTableSchema(sql: ReturnType<typeof postgres>): P
 
   if (rows.length === 0) return null;
 
-  const drizzleSchema = rows.find(({ schemaName }) => schemaName === "drizzle");
+  const drizzleSchema = rows.find(({ schemaName }: { schemaName: string }) => schemaName === "drizzle");
   if (drizzleSchema) return drizzleSchema.schemaName;
 
-  const publicSchema = rows.find(({ schemaName }) => schemaName === "public");
+  const publicSchema = rows.find(({ schemaName }: { schemaName: string }) => schemaName === "public");
   if (publicSchema) return publicSchema.schemaName;
 
   return rows[0]?.schemaName ?? null;

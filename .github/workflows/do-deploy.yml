@@ -85,7 +85,7 @@ jobs:
           doctl apps update "$APP_ID" --spec app-spec.yaml
 
       - name: Trigger App Platform Deployment
-        uses: digitalocean/app_action@v2
+        uses: digitalocean/app_action/deploy@v2
         with:
           app_name: ${{ secrets.DO_APP_NAME || 'companies-app' }}
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
