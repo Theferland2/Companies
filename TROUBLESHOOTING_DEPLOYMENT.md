@@ -268,7 +268,7 @@ pnpm test:run
 # 1. Ve a tu app en DO
 # 2. Settings → Environment Variables
 # 3. Edita DATABASE_URL
-# 4. Pega: postgresql://postgres.nxixwsexfuxpelsthmwd:dV5NJ%23sjyY%3a%2cKu@aws-0-us-west-2.pooler.supabase.com:6543/postgres
+# 4. Pega: postgresql://postgres.[PROJECT_ID]:[PASSWORD_URL_ENCODED]@aws-0-us-west-2.pooler.supabase.com:6543/postgres
 # 5. Save
 
 # Luego comentar steps 8-9 del workflow

@@ -59,7 +59,9 @@ on:
 
 3. Configurar:
    - **Name:** `DATABASE_URL`
-   - **Value:** `postgresql://postgres.nxixwsexfuxpelsthmwd:dV5NJ%23sjyY%3a%2cKu@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
+   - **Value:** `postgresql://postgres.[PROJECT_ID]:[PASSWORD_URL_ENCODED]@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
+   
+   (Reemplaza `[PROJECT_ID]` y `[PASSWORD_URL_ENCODED]` con tus valores reales de Supabase)
 
 4. Click **"Add secret"**
 
@@ -221,7 +223,7 @@ git push origin master
 ### Paso 1: Usuario configura GitHub Secret (Manual, una vez)
 - [ ] Ir a: https://github.com/Theferland2/Companies/settings/secrets/actions
 - [ ] Crear secret: `DATABASE_URL`
-- [ ] Pegar: `postgresql://postgres.nxixwsexfuxpelsthmwd:dV5NJ%23sjyY%3a%2cKu@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
+- [ ] Pegar: `postgresql://postgres.[PROJECT_ID]:[PASSWORD_URL_ENCODED]@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
 - [ ] Guardar
 
 ### Paso 2: Implementar nuevo workflow (Automático)
@@ -264,9 +266,11 @@ Push → Funciona
 **El usuario debe:**
 
 1. **Configurar GitHub Secret** (2 minutos):
-   - Ir a: https://github.com/Theferland2/Companies/settings/secrets/actions
+   - Ir a: https://github.com/ferangarita01/Companies/settings/secrets/actions
    - New secret: `DATABASE_URL`
-   - Value: `postgresql://postgres.nxixwsexfuxpelsthmwd:dV5NJ%23sjyY%3a%2cKu@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
+   - Value: `postgresql://postgres.[PROJECT_ID]:[PASSWORD_URL_ENCODED]@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
+   
+   (Reemplaza con tus valores reales de Supabase)
 
 2. **Confirmar que está listo para que yo modifique el workflow**
 
