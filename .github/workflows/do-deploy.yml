@@ -38,8 +38,6 @@ jobs:
       - name: Run tests
         run: pnpm test:run
 
-
-
       - name: Configure Database Secret
         uses: digitalocean/action-doctl@v2
         with:
@@ -50,9 +48,9 @@ jobs:
           DO_APP_NAME: ${{ secrets.DO_APP_NAME || 'companies-app' }}
           DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
         run: |
-          # 1. Obtener App ID 
+          # 1. Obtener App ID
           APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep "$DO_APP_NAME" | awk '{print $1}')
-          
+
           if [ -z "$APP_ID" ]; then
             echo "❌ Error: No se encontró una aplicación con el nombre $DO_APP_NAME"
             exit 1
@@ -62,38 +60,20 @@ jobs:
 
           # 2. Descargar spec actual
           doctl apps spec get "$APP_ID" > app-spec.yaml
-          
-          # 3. Instalar yq
+
+          # 3. Instalar yq (evita usar Python yaml.dump que produce YAML incompatible con doctl)
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-          
-          # 4. Actualizar DATABASE_URL en el spec (asegurando que sea SECRET)
-          # Buscamos el servicio que tiene la DATABASE_URL y la actualizamos
-          cat > update_spec.py << 'EOF'
-import os
-import yaml
 
-# Leer el spec YAML
-with open('app-spec.yaml', 'r') as f:
-    spec = yaml.safe_load(f)
+          # 4. Actualizar DATABASE_URL en el spec usando yq (in-place, preserva el formato)
+          yq eval '
+            (.services[] | select(.envs != null) | .envs[] | select(.key == "DATABASE_URL") | .value) = strenv(DATABASE_URL_SECRET) |
+            (.services[] | select(.envs != null) | .envs[] | select(.key == "DATABASE_URL") | .type) = "SECRET" |
+            (.services[] | select(.envs != null) | .envs[] | select(.key == "DATABASE_URL") | .scope) = "RUN_AND_BUILD_TIME"
+          ' -i app-spec.yaml
 
-# Actualizar DATABASE_URL en todos los servicios
-if 'services' in spec:
-    for service in spec['services']:
-        if 'envs' in service:
-            for env in service['envs']:
-                if env.get('key') == 'DATABASE_URL':
-                    env['value'] = os.environ.get('DATABASE_URL_SECRET', '')
-                    env['type'] = 'SECRET'
-                    env['scope'] = 'RUN_AND_BUILD_TIME'
+          echo "✅ Updated app-spec.yaml with DATABASE_URL secret"
 
-# Guardar de vuelta
-with open('app-spec.yaml', 'w') as f:
-    yaml.dump(spec, f)
-EOF
-
-          python3 update_spec.py
-          
           # 5. Aplicar spec actualizado
           doctl apps update "$APP_ID" --spec app-spec.yaml
 
