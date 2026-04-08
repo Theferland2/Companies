@@ -63,3 +63,7 @@ MIGRATION_HANDOFF.md
 app-spec.yaml
 app-spec.yml
 current-spec.json
+
+# Supabase CLI files - may contain credentials
+supabase/
+supabase-login.ps1
