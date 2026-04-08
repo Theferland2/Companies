@@ -432,7 +432,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       graceSec,
       stdin: prompt,
       onSpawn,
-      onLog: async (stream, chunk) => {
+      onLog: async (stream: "stdout" | "stderr", chunk: string) => {
         if (stream !== "stdout") {
           await onLog(stream, chunk);
           return;
