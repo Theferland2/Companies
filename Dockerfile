@@ -47,10 +47,13 @@ COPY --from=deps /app /app
 COPY . .
 RUN pnpm --filter @paperclipai/shared build
 RUN pnpm --filter @paperclipai/db build
+RUN pnpm --filter @paperclipai/adapter-utils build \
+  && pnpm --filter './packages/adapters/*' build
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/plugin-sdk build
 RUN pnpm --filter @paperclipai/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
+RUN node scripts/patch-workspace-exports.mjs /app
 
 FROM base AS production
 ARG USER_UID=1000
