@@ -83,17 +83,20 @@ jobs:
               echo "⏭ Skipping $KEY (not set)"
               return
             fi
-            
+
+            # Use strenv() to avoid shell/yq injection from secret values
+            export _YQ_KEY="$KEY" _YQ_VAL="$VAL" _YQ_TYPE="$TYPE"
+
             # Check if key exists
-            if yq eval ".services[0].envs[] | select(.key == \"$KEY\")" app-spec.yaml > /dev/null 2>&1; then
+            if yq eval '.services[0].envs[] | select(.key == strenv(_YQ_KEY))' app-spec.yaml | grep -q .; then
               # Update existing key
-              yq eval -i "(.services[0].envs[] | select(.key == \"$KEY\") | .value) = \"$VAL\"" app-spec.yaml
-              yq eval -i "(.services[0].envs[] | select(.key == \"$KEY\") | .type) = \"$TYPE\"" app-spec.yaml
-              yq eval -i "(.services[0].envs[] | select(.key == \"$KEY\") | .scope) = \"RUN_AND_BUILD_TIME\"" app-spec.yaml
+              yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .value) = strenv(_YQ_VAL)' app-spec.yaml
+              yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .type)  = strenv(_YQ_TYPE)' app-spec.yaml
+              yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .scope) = "RUN_AND_BUILD_TIME"' app-spec.yaml
               echo "✅ Updated $KEY"
             else
               # Add new key
-              yq eval -i ".services[0].envs += [{\"key\": \"$KEY\", \"value\": \"$VAL\", \"type\": \"$TYPE\", \"scope\": \"RUN_AND_BUILD_TIME\"}]" app-spec.yaml
+              yq eval -i '.services[0].envs += [{"key": strenv(_YQ_KEY), "value": strenv(_YQ_VAL), "type": strenv(_YQ_TYPE), "scope": "RUN_AND_BUILD_TIME"}]' app-spec.yaml
               echo "✅ Added $KEY"
             fi
           }
@@ -114,31 +117,3 @@ jobs:
         with:
           token:             ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           app_spec_location: app-spec.yaml
-        continue-on-error: true
-        id: deploy_step
-
-      - name: Capture deployment logs on failure
-        if: steps.deploy_step.outcome == 'failure'
-        env:
-          DO_APP_NAME: ${{ secrets.DO_APP_NAME }}
-        run: |
-          # Get App ID
-          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header \
-            | grep "$DO_APP_NAME" | awk '{print $1}')
-          
-          echo "=== Getting latest deployment info ==="
-          LATEST_DEP=$(doctl apps list-deployments "$APP_ID" --format ID,Phase,Cause --no-header | head -n1)
-          DEP_ID=$(echo "$LATEST_DEP" | awk '{print $1}')
-          echo "Deployment ID: $DEP_ID"
-          echo "Status: $LATEST_DEP"
-          
-          echo -e "\n=== Deployment progress details ==="
-          doctl apps get-deployment "$APP_ID" "$DEP_ID" --format Progress,Phase,Cause
-          
-          echo -e "\n=== Attempting to get deployment logs ==="
-          doctl apps logs "$APP_ID" --type deploy --tail 200 || echo "Deploy logs not available"
-          
-          echo -e "\n=== Attempting to get runtime logs ==="
-          doctl apps logs "$APP_ID" --type run --tail 100 || echo "Runtime logs not available"
-          
-          exit 1
