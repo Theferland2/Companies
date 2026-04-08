@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -45,7 +45,7 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
-      - name: Sync secrets from GitHub to DO App Spec
+      - name: Prepare DO App Spec with injected secrets
         env:
           DO_APP_NAME:        ${{ secrets.DO_APP_NAME }}
           DATABASE_URL:       ${{ secrets.DATABASE_URL }}
@@ -62,7 +62,7 @@ jobs:
           fi
           echo "✅ App ID: $APP_ID"
 
-          # Download current spec (preserves all existing env vars not managed here)
+          # Download current spec
           doctl apps spec get "$APP_ID" > app-spec.yaml
 
           # Install yq
@@ -70,37 +70,43 @@ jobs:
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-          # Only update env vars that have a non-empty value in GH Secrets
-          # This avoids overwriting DO-managed vars with empty strings.
-          update_if_set() {
+          # Helper to upsert (create or update) env vars in the first service
+          upsert_env() {
             local KEY="$1"
             local VAL="$2"
+            local TYPE="${3:-SECRET}"
             if [ -z "$VAL" ]; then
-              echo "⏭ Skipping $KEY (not set in GH Secrets)"
+              echo "⏭ Skipping $KEY (not set)"
               return
             fi
-            export _KEY="$KEY" _VAL="$VAL"
+            export _KEY="$KEY" _VAL="$VAL" _TYPE="$TYPE"
+            
+            # This yq command finds the key in .services[0].envs. 
+            # If it exists, updates it. If not, appends it.
             yq eval -i '
-              (.services[] | .envs[] | select(.key == env(_KEY)) | .value) = env(_VAL) |
-              (.services[] | .envs[] | select(.key == env(_KEY)) | .type)  = "SECRET" |
-              (.services[] | .envs[] | select(.key == env(_KEY)) | .scope) = "RUN_AND_BUILD_TIME"
+              with(.services[0].envs;
+                if (map(select(.key == env(_KEY))) | length == 0) then
+                  . += [{"key": env(_KEY), "value": env(_VAL), "type": env(_TYPE), "scope": "RUN_AND_BUILD_TIME"}]
+                else
+                  (.[] | select(.key == env(_KEY)) | .value) = env(_VAL) |
+                  (.[] | select(.key == env(_KEY)) | .type)  = env(_TYPE) |
+                  (.[] | select(.key == env(_KEY)) | .scope) = "RUN_AND_BUILD_TIME"
+                end
+              )
             ' app-spec.yaml
-            echo "✅ Updated $KEY"
+            echo "✅ Upserted $KEY"
           }
 
-          update_if_set "DATABASE_URL"       "$DATABASE_URL"
-          update_if_set "GEMINI_API_KEY"     "$GEMINI_API_KEY"
-          update_if_set "OPENROUTER_API_KEY" "$OPENROUTER_API_KEY"
-
-          # Apply updated spec
-          doctl apps update "$APP_ID" --spec app-spec.yaml
-          echo "✅ Secrets synced to DO app spec"
+          upsert_env "DATABASE_URL"               "$DATABASE_URL"
+          upsert_env "GEMINI_API_KEY"             "$GEMINI_API_KEY"
+          upsert_env "OPENROUTER_API_KEY"         "$OPENROUTER_API_KEY"
+          upsert_env "PAPERCLIP_MIGRATION_AUTO_APPLY" "true" "GENERAL"
 
       - name: Deploy to App Platform
         uses: digitalocean/app_action/deploy@v2
         with:
-          app_name: ${{ secrets.DO_APP_NAME }}
-          token:    ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          token:             ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          app_spec_location: app-spec.yaml
         continue-on-error: true
         id: deploy_step
 
