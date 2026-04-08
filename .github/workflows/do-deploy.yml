@@ -136,9 +136,9 @@ jobs:
           doctl apps get-deployment "$APP_ID" "$DEP_ID" --format Progress,Phase,Cause
           
           echo -e "\n=== Attempting to get deployment logs ==="
-          doctl apps logs "$APP_ID" --type deploy --follow false --tail 200 || echo "Deploy logs not available"
+          doctl apps logs "$APP_ID" --type deploy --tail 200 || echo "Deploy logs not available"
           
           echo -e "\n=== Attempting to get runtime logs ==="
-          doctl apps logs "$APP_ID" --type run --follow false --tail 100 || echo "Runtime logs not available"
+          doctl apps logs "$APP_ID" --type run --tail 100 || echo "Runtime logs not available"
           
           exit 1
