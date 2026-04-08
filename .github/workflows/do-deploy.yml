@@ -38,47 +38,66 @@ jobs:
       - name: Run tests
         run: pnpm test:run
 
-      - name: Configure Database Secret
+      # --- DigitalOcean Deploy ---
+
+      - name: Authenticate doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
-      - name: Update App Spec with DATABASE_URL
+      - name: Sync secrets from GitHub to DO App Spec
         env:
-          DO_APP_NAME: ${{ secrets.DO_APP_NAME || 'companies-app' }}
-          DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
+          DO_APP_NAME:        ${{ secrets.DO_APP_NAME }}
+          DATABASE_URL:       ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          # 1. Obtener App ID
-          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep "$DO_APP_NAME" | awk '{print $1}')
+          # Resolve App ID from name
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header \
+            | grep "$DO_APP_NAME" | awk '{print $1}')
 
           if [ -z "$APP_ID" ]; then
-            echo "❌ Error: No se encontró una aplicación con el nombre $DO_APP_NAME"
+            echo "❌ App '$DO_APP_NAME' not found in DigitalOcean"
             exit 1
           fi
+          echo "✅ App ID: $APP_ID"
 
-          echo "✅ Found App ID: $APP_ID"
-
-          # 2. Descargar spec actual
+          # Download current spec (preserves all existing env vars not managed here)
           doctl apps spec get "$APP_ID" > app-spec.yaml
 
-          # 3. Instalar yq (evita usar Python yaml.dump que produce YAML incompatible con doctl)
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-          # 4. Actualizar DATABASE_URL en el spec usando yq (in-place, preserva el formato)
-          yq eval '
-            (.services[] | select(.envs != null) | .envs[] | select(.key == "DATABASE_URL") | .value) = strenv(DATABASE_URL_SECRET) |
-            (.services[] | select(.envs != null) | .envs[] | select(.key == "DATABASE_URL") | .type) = "SECRET" |
-            (.services[] | select(.envs != null) | .envs[] | select(.key == "DATABASE_URL") | .scope) = "RUN_AND_BUILD_TIME"
-          ' -i app-spec.yaml
+          # Only update env vars that have a non-empty value in GH Secrets
+          # This avoids overwriting DO-managed vars with empty strings.
+          update_if_set() {
+            local KEY="$1"
+            local VAL="$2"
+            if [ -z "$VAL" ]; then
+              echo "⏭ Skipping $KEY (not set in GH Secrets)"
+              return
+            fi
+            export _KEY="$KEY" _VAL="$VAL"
+            yq eval -i '
+              (.services[] | .envs[] | select(.key == env(_KEY)) | .value) = env(_VAL) |
+              (.services[] | .envs[] | select(.key == env(_KEY)) | .type)  = "SECRET" |
+              (.services[] | .envs[] | select(.key == env(_KEY)) | .scope) = "RUN_AND_BUILD_TIME"
+            ' app-spec.yaml
+            echo "✅ Updated $KEY"
+          }
 
-          echo "✅ Updated app-spec.yaml with DATABASE_URL secret"
+          update_if_set "DATABASE_URL"       "$DATABASE_URL"
+          update_if_set "GEMINI_API_KEY"     "$GEMINI_API_KEY"
+          update_if_set "OPENROUTER_API_KEY" "$OPENROUTER_API_KEY"
 
-          # 5. Aplicar spec actualizado
+          # Apply updated spec
           doctl apps update "$APP_ID" --spec app-spec.yaml
+          echo "✅ Secrets synced to DO app spec"
 
-      - name: Trigger App Platform Deployment
+      - name: Deploy to App Platform
         uses: digitalocean/app_action/deploy@v2
         with:
-          app_name: ${{ secrets.DO_APP_NAME || 'companies-app' }}
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          app_name: ${{ secrets.DO_APP_NAME }}
+          token:    ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
