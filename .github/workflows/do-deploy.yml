@@ -101,3 +101,31 @@ jobs:
         with:
           app_name: ${{ secrets.DO_APP_NAME }}
           token:    ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+        continue-on-error: true
+        id: deploy_step
+
+      - name: Capture deployment logs on failure
+        if: steps.deploy_step.outcome == 'failure'
+        env:
+          DO_APP_NAME: ${{ secrets.DO_APP_NAME }}
+        run: |
+          # Get App ID
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header \
+            | grep "$DO_APP_NAME" | awk '{print $1}')
+          
+          echo "=== Getting latest deployment info ==="
+          LATEST_DEP=$(doctl apps list-deployments "$APP_ID" --format ID,Phase,Cause --no-header | head -n1)
+          DEP_ID=$(echo "$LATEST_DEP" | awk '{print $1}')
+          echo "Deployment ID: $DEP_ID"
+          echo "Status: $LATEST_DEP"
+          
+          echo -e "\n=== Deployment progress details ==="
+          doctl apps get-deployment "$APP_ID" "$DEP_ID" --format Progress.Steps
+          
+          echo -e "\n=== Attempting to get deployment logs ==="
+          doctl apps logs "$APP_ID" --type deploy --follow false --tail 200 || echo "Deploy logs not available"
+          
+          echo -e "\n=== Attempting to get runtime logs ==="
+          doctl apps logs "$APP_ID" --type run --follow false --tail 100 || echo "Runtime logs not available"
+          
+          exit 1
