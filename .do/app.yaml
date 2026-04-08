@@ -3,7 +3,7 @@ region: nyc3
 services:
   - name: companies-api-ui
     github:
-      repo: ferangarita01/Companies
+      repo: Theferland2/Companies
       branch: master
       deploy_on_push: false # Triggered programmatically via Github Actions after successful test suite
     dockerfile_path: Dockerfile
@@ -19,3 +19,23 @@ services:
         scope: RUN_AND_BUILD_TIME
         type: SECRET
         value: "${DATABASE_URL}"
+      - key: BETTER_AUTH_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: "${BETTER_AUTH_SECRET}"
+      - key: BETTER_AUTH_URL
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+        value: "${BETTER_AUTH_URL}"
+      - key: GEMINI_API_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: "${GEMINI_API_KEY}"
+      - key: OPENROUTER_API_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: "${OPENROUTER_API_KEY}"
+      - key: PAPERCLIP_MIGRATION_AUTO_APPLY
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
+        value: "true"
