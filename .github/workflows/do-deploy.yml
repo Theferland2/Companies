@@ -102,19 +102,17 @@ jobs:
               return
             fi
 
-            # Use strenv() to avoid shell/yq injection from secret values
-            export _YQ_KEY="$KEY" _YQ_VAL="$VAL" _YQ_TYPE="$TYPE"
-
+            # Pass secrets inline to each yq invocation via strenv() — never exported broadly
             # Check if key exists
-            if yq eval '.services[0].envs[] | select(.key == strenv(_YQ_KEY))' app-spec.yaml | grep -q .; then
+            if _YQ_KEY="$KEY" yq eval '.services[0].envs[] | select(.key == strenv(_YQ_KEY))' app-spec.yaml | grep -q .; then
               # Update existing key
-              yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .value) = strenv(_YQ_VAL)' app-spec.yaml
-              yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .type)  = strenv(_YQ_TYPE)' app-spec.yaml
-              yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .scope) = "RUN_AND_BUILD_TIME"' app-spec.yaml
+              _YQ_KEY="$KEY" _YQ_VAL="$VAL" yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .value) = strenv(_YQ_VAL)' app-spec.yaml
+              _YQ_KEY="$KEY" _YQ_TYPE="$TYPE" yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .type)  = strenv(_YQ_TYPE)' app-spec.yaml
+              _YQ_KEY="$KEY" yq eval -i '(.services[0].envs[] | select(.key == strenv(_YQ_KEY)) | .scope) = "RUN_AND_BUILD_TIME"' app-spec.yaml
               echo "✅ Updated $KEY"
             else
               # Add new key
-              yq eval -i '.services[0].envs += [{"key": strenv(_YQ_KEY), "value": strenv(_YQ_VAL), "type": strenv(_YQ_TYPE), "scope": "RUN_AND_BUILD_TIME"}]' app-spec.yaml
+              _YQ_KEY="$KEY" _YQ_VAL="$VAL" _YQ_TYPE="$TYPE" yq eval -i '.services[0].envs += [{"key": strenv(_YQ_KEY), "value": strenv(_YQ_VAL), "type": strenv(_YQ_TYPE), "scope": "RUN_AND_BUILD_TIME"}]' app-spec.yaml
               echo "✅ Added $KEY"
             fi
           }
