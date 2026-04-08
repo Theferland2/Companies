@@ -53,6 +53,8 @@ jobs:
           DATABASE_URL:       ${{ secrets.DATABASE_URL }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL:    ${{ secrets.BETTER_AUTH_URL }}
         run: |
           # Resolve App ID from name
           APP_ID=$(doctl apps list --format ID,Spec.Name --no-header \
@@ -99,7 +101,13 @@ jobs:
           upsert_env "DATABASE_URL"               "$DATABASE_URL"
           upsert_env "GEMINI_API_KEY"             "$GEMINI_API_KEY"
           upsert_env "OPENROUTER_API_KEY"         "$OPENROUTER_API_KEY"
+          upsert_env "BETTER_AUTH_SECRET"         "$BETTER_AUTH_SECRET"
+          upsert_env "BETTER_AUTH_URL"            "$BETTER_AUTH_URL" "GENERAL"
           upsert_env "PAPERCLIP_MIGRATION_AUTO_APPLY" "true" "GENERAL"
+
+          # Ensure the port is correctly set to 3100 to match Dockerfile
+          echo "🔧 Setting http_port to 3100 in app spec..."
+          yq eval -i ".services[0].http_port = 3100" app-spec.yaml
 
       - name: Deploy to App Platform
         uses: digitalocean/app_action/deploy@v2
@@ -125,7 +133,7 @@ jobs:
           echo "Status: $LATEST_DEP"
           
           echo -e "\n=== Deployment progress details ==="
-          doctl apps get-deployment "$APP_ID" "$DEP_ID" --format Progress.Steps
+          doctl apps get-deployment "$APP_ID" "$DEP_ID" --format Progress,Phase,Cause
           
           echo -e "\n=== Attempting to get deployment logs ==="
           doctl apps logs "$APP_ID" --type deploy --follow false --tail 200 || echo "Deploy logs not available"
