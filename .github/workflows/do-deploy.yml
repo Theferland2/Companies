@@ -81,22 +81,19 @@ jobs:
               echo "⏭ Skipping $KEY (not set)"
               return
             fi
-            export _KEY="$KEY" _VAL="$VAL" _TYPE="$TYPE"
             
-            # This yq command finds the key in .services[0].envs. 
-            # If it exists, updates it. If not, appends it.
-            yq eval -i '
-              with(.services[0].envs;
-                if (map(select(.key == env(_KEY))) | length == 0) then
-                  . += [{"key": env(_KEY), "value": env(_VAL), "type": env(_TYPE), "scope": "RUN_AND_BUILD_TIME"}]
-                else
-                  (.[] | select(.key == env(_KEY)) | .value) = env(_VAL) |
-                  (.[] | select(.key == env(_KEY)) | .type)  = env(_TYPE) |
-                  (.[] | select(.key == env(_KEY)) | .scope) = "RUN_AND_BUILD_TIME"
-                end
-              )
-            ' app-spec.yaml
-            echo "✅ Upserted $KEY"
+            # Check if key exists
+            if yq eval ".services[0].envs[] | select(.key == \"$KEY\")" app-spec.yaml > /dev/null 2>&1; then
+              # Update existing key
+              yq eval -i "(.services[0].envs[] | select(.key == \"$KEY\") | .value) = \"$VAL\"" app-spec.yaml
+              yq eval -i "(.services[0].envs[] | select(.key == \"$KEY\") | .type) = \"$TYPE\"" app-spec.yaml
+              yq eval -i "(.services[0].envs[] | select(.key == \"$KEY\") | .scope) = \"RUN_AND_BUILD_TIME\"" app-spec.yaml
+              echo "✅ Updated $KEY"
+            else
+              # Add new key
+              yq eval -i ".services[0].envs += [{\"key\": \"$KEY\", \"value\": \"$VAL\", \"type\": \"$TYPE\", \"scope\": \"RUN_AND_BUILD_TIME\"}]" app-spec.yaml
+              echo "✅ Added $KEY"
+            fi
           }
 
           upsert_env "DATABASE_URL"               "$DATABASE_URL"
