@@ -1,0 +1,36 @@
+name: Delete PR Preview
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  delete-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Authenticate doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Delete PR Preview
+        env:
+          DO_APP_NAME: ${{ secrets.DO_APP_NAME }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Resolve App ID from name
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header \
+            | grep "$DO_APP_NAME" | awk '{print $1}')
+
+          if [ -z "$APP_ID" ]; then
+            echo "⏭ App not found, skipping delete"
+            exit 0
+          fi
+
+          echo "🗑 Deleting preview for PR #$PR_NUMBER..."
+          # Note: If the preview doesn't exist, this will exit with 0 or 1.
+          # We check if it exists first via doctl if possible.
+          doctl apps delete-preview "$APP_ID" --pull-request "$PR_NUMBER" --force || echo "Preview already deleted or not found"

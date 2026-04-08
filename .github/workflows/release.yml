@@ -104,7 +104,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run
     needs: verify_stable
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 5
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: read
 
