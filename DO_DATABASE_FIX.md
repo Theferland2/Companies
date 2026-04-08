@@ -195,3 +195,5 @@ Esto hace que `process.env.DATABASE_URL` sea `""` (string vacío, no `undefined`
 4. Al ejecutar `inspectMigrations()`, Supabase rechaza con "Tenant or user not found"
 
 **Fix:** Configurar el valor real del SECRET en DigitalOcean, no en el YAML.
+
+<!-- Fix applied: 2026-04-08 01:38:35 -->
