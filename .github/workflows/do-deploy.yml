@@ -10,7 +10,7 @@ jobs:
   build-test-deploy:
     name: Build, Test & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
@@ -56,6 +56,24 @@ jobs:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BETTER_AUTH_URL:    ${{ secrets.BETTER_AUTH_URL }}
         run: |
+          # --- Pre-flight: fail fast if required secrets are missing ---
+          echo "🔍 Verifying required secrets are configured..."
+          missing=0
+          for var in DATABASE_URL BETTER_AUTH_SECRET; do
+            if [ -z "${!var}" ]; then
+              echo "❌ Required GitHub Secret '$var' is not set."
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo ""
+            echo "Set the missing secrets in: Settings → Secrets and variables → Actions"
+            echo "  - DATABASE_URL: your PostgreSQL connection string"
+            echo "  - BETTER_AUTH_SECRET: a random 32+ character secret (e.g. run: openssl rand -base64 32)"
+            exit 1
+          fi
+          echo "✅ Required secrets are present"
+          echo ""
           # Resolve App ID from name
           APP_ID=$(doctl apps list --format ID,Spec.Name --no-header \
             | grep "$DO_APP_NAME" | awk '{print $1}')
@@ -117,3 +135,5 @@ jobs:
         with:
           token:             ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           app_spec_location: app-spec.yaml
+          print_build_logs:  true
+          print_deploy_logs: true
