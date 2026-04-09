@@ -11,8 +11,17 @@ const MIGRATIONS_FOLDER = fileURLToPath(new URL("./migrations", import.meta.url)
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations";
 const MIGRATIONS_JOURNAL_JSON = fileURLToPath(new URL("./migrations/meta/_journal.json", import.meta.url));
 
+function getPostgresExtraOptions(): { family?: number } {
+  // When DATABASE_URL resolves to an IPv6 address but the host network cannot
+  // route IPv6 traffic (common in container deployments), connections fail with
+  // EHOSTUNREACH.  Setting POSTGRES_PREFER_IPV4=true forces DNS family 4 so
+  // the postgres driver resolves to an IPv4 address instead.
+  const preferIPv4 = process.env.POSTGRES_PREFER_IPV4 === "true";
+  return preferIPv4 ? { family: 4 } : {};
+}
+
 function createUtilitySql(url: string) {
-  return postgres(url, { max: 1, onnotice: () => {}, prepare: false });
+  return postgres(url, { max: 1, onnotice: () => {}, prepare: false, ...getPostgresExtraOptions() });
 }
 
 function isSafeIdentifier(value: string): boolean {
@@ -47,7 +56,7 @@ export type MigrationState =
     };
 
 export function createDb(url: string) {
-  const sql = postgres(url, { prepare: false });
+  const sql = postgres(url, { prepare: false, ...getPostgresExtraOptions() });
   return drizzlePg(sql, { schema });
 }
 
